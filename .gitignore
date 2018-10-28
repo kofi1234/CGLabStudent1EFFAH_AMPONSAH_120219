@@ -1,4 +1,5 @@
 build
+buildx64
 install
 *.o
 *.sublime-workspace

@@ -4,7 +4,8 @@
 #include "utils.hpp"
 #include "shader_loader.hpp"
 #include "model_loader.hpp"
-
+#include "SceneGraph.hpp"
+#include "GeometryNode.hpp"
 #include <glbinding/gl/gl.h>
 // use gl definitions from glbinding 
 using namespace gl;
@@ -26,6 +27,7 @@ ApplicationSolar::ApplicationSolar(std::string const& resource_path)
  ,m_view_projection{utils::calculate_projection_matrix(initial_aspect_ratio)}
 {
   initializeGeometry();
+  testSceneGraph();
   initializeShaderPrograms();
 }
 
@@ -41,6 +43,7 @@ void ApplicationSolar::render() const {
 
   glm::fmat4 model_matrix = glm::rotate(glm::fmat4{}, float(glfwGetTime()), glm::fvec3{0.0f, 1.0f, 0.0f});
   model_matrix = glm::translate(model_matrix, glm::fvec3{0.0f, 0.0f, -1.0f});
+ // model_matrix = glm::rotate(glm::fmat4{}, float(glfwGetTime()), glm::fvec3{ 0.0f, 1.0f, 0.0f });
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ModelMatrix"),
                      1, GL_FALSE, glm::value_ptr(model_matrix));
 
@@ -54,6 +57,32 @@ void ApplicationSolar::render() const {
 
   // draw bound vertex array using bound shader
   glDrawElements(planet_object.draw_mode, planet_object.num_elements, model::INDEX.type, NULL);
+  
+  
+  
+  
+  
+  model_matrix = glm::fmat4{};
+  model_matrix = glm::translate(model_matrix, glm::fvec3{ 0.0f, 0.0f, -3.0f });
+  model_matrix = glm::rotate(glm::fmat4{}, float(glfwGetTime()), glm::fvec3{ 0.0f, 1.0f, 0.0f });
+  model_matrix = glm::scale(model_matrix, glm::fvec3{ 0.6f, 0.4f, 0.2f});
+  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ModelMatrix"),
+	  1, GL_FALSE, glm::value_ptr(model_matrix));
+
+  // extra matrix for normal transformation to keep them orthogonal to surface
+  normal_matrix = glm::inverseTranspose(glm::inverse(m_view_transform) * model_matrix);
+  glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("NormalMatrix"),
+	  1, GL_FALSE, glm::value_ptr(normal_matrix));
+
+  // bind the VAO to draw
+  glBindVertexArray(planet_object.vertex_AO);
+
+  // draw bound vertex array using bound shader
+  glDrawElements(planet_object.draw_mode, planet_object.num_elements, model::INDEX.type, NULL);
+
+
+
+
 }
 
 void ApplicationSolar::uploadView() {
@@ -62,6 +91,19 @@ void ApplicationSolar::uploadView() {
   // upload matrix to gpu
   glUniformMatrix4fv(m_shaders.at("planet").u_locs.at("ViewMatrix"),
                      1, GL_FALSE, glm::value_ptr(view_matrix));
+}
+
+void ApplicationSolar::testSceneGraph()
+{
+	SceneGraph test = SceneGraph();
+	Node* root = new Node();
+	test.setRoot(root);
+	root->setlocalTransform(glm::fmat4{});
+	GeometryNode* geo = new GeometryNode();
+	geo->setParent(root);
+	root->addChildren(geo);
+	
+
 }
 
 void ApplicationSolar::uploadProjection() {
@@ -145,7 +187,8 @@ void ApplicationSolar::keyCallback(int key, int action, int mods) {
 
 //handle delta mouse movement input
 void ApplicationSolar::mouseCallback(double pos_x, double pos_y) {
-  // mouse handling
+	m_view_transform = glm::translate(m_view_transform, glm::fvec3{ pos_x*0.01f, pos_y*0.01f, 0.0f });
+	uploadView();
 }
 
 //handle resizing
